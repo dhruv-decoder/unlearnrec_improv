@@ -123,7 +123,14 @@ def find_least_related_edges_smp(model, handler, save_path, ratio=0.6):
         pickle.dump((adv_adj, least_related_edges), fs)        
 
 def load_model(load_model):
+    if not os.path.isfile(load_model):
+        raise FileNotFoundError(f"Model checkpoint not found: {load_model}")
     ckp = t.load(load_model, weights_only=False)
+    if 'model' not in ckp:
+        raise KeyError(
+            f"Checkpoint '{load_model}' missing 'model' key. "
+            f"Available keys: {sorted(ckp.keys())}"
+        )
     model = ckp['model']
     return model
 

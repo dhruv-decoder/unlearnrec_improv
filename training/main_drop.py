@@ -120,6 +120,11 @@ class Coach:
         elif hasattr(trained_model, "ini_embeds"):
             ini_embeds = trained_model.ini_embeds.detach()
             ini_embeds.requires_grad=False
+        else:
+            raise RuntimeError(
+                f"Trained model {type(trained_model).__name__} has neither "
+                f"'uEmbeds'/'iEmbeds' nor 'ini_embeds' attributes"
+            )
         
             
         fnl_uEmbeds, fnl_iEmbeds = trained_model.forward(self.handler.ts_ori_adj, keepRate=1.0) 
@@ -312,26 +317,42 @@ class Coach:
         if not save_path.endswith('.mod'):
             save_path = save_path + '.mod'
 
+        save_dir = os.path.dirname(save_path)
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
         t.save(content,  save_path)
         log('Model Saved: %s' % args.save_path)
 
     def load_trained_model(self, trained_model = args.trained_model):
         if not trained_model.endswith('.mod'):
             trained_model = trained_model + '.mod'
+        if not os.path.isfile(trained_model):
+            raise FileNotFoundError(f"Trained model not found: {trained_model}")
 
         ckp = t.load(trained_model, weights_only=False)
+        if 'model' not in ckp:
+            raise KeyError(
+                f"Checkpoint '{trained_model}' missing 'model' key. "
+                f"Available keys: {sorted(ckp.keys())}"
+            )
 
         model = ckp['model']
         return model
-        
 
     def load_model_2_finetune(self, model_2_finetune=None):
         if model_2_finetune is None:
             model_2_finetune = args.model_2_finetune
         if not model_2_finetune.endswith('.mod'):
             model_2_finetune = model_2_finetune + '.mod'
+        if not os.path.isfile(model_2_finetune):
+            raise FileNotFoundError(f"Fine-tune model not found: {model_2_finetune}")
 
         ckp = t.load(model_2_finetune, weights_only=False)
+        if 'model' not in ckp:
+            raise KeyError(
+                f"Checkpoint '{model_2_finetune}' missing 'model' key. "
+                f"Available keys: {sorted(ckp.keys())}"
+            )
         self.model = ckp['model']
         self.opt = t.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=0)
 

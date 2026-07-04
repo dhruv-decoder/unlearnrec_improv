@@ -185,18 +185,26 @@ class Coach:
         content = {
             'model': self.model,
         }
-        t.save(content,  args.save_path + '.mod')
+        save_path = args.save_path + '.mod'
+        save_dir = os.path.dirname(save_path)
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+        t.save(content, save_path)
         log('Model Saved: %s' % args.save_path)
 
     def load_model(self, load_model=None):
         load_model = args.load_model if load_model is None else load_model
-        ckp = t.load(load_model + '.mod', weights_only=False)
+        model_path = load_model + '.mod'
+        if not os.path.isfile(model_path):
+            raise FileNotFoundError(f"Model checkpoint not found: {model_path}")
+        ckp = t.load(model_path, weights_only=False)
+        if 'model' not in ckp:
+            raise KeyError(
+                f"Checkpoint '{model_path}' missing 'model' key. "
+                f"Available keys: {sorted(ckp.keys())}"
+            )
         self.model = ckp['model']
         self.opt = t.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=0)
-        
-
-        # with open('../../History/' + load_model + '.his', 'rb') as fs:
-        #     self.metrics = pickle.load(fs)
 
 
     def test_unlearn(self, model, prefix=''):
