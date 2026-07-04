@@ -1,9 +1,9 @@
-import pickle
 import numpy as np
 from scipy.sparse import csr_matrix, coo_matrix, dok_matrix
 from config.params import args
 import scipy.sparse as sp
 from Utils.time_logger import log
+from Utils.safe_io import safe_pickle_load
 import torch as t
 import torch.utils.data as data
 import torch_sparse as ts
@@ -43,13 +43,12 @@ class DataHandler:
 
     def _load_one_file(self, filename, test_file=False,non_binary=False):
         print(f"################here _load_one_file##################")
-        with open(filename, 'rb') as fs:
-            tem = pickle.load(fs)
-            if args.adversarial_attack and (not test_file):
-                print(f"################here load self.adv_edges##################")
-                self.adv_edges = tem[1] 
-                tem = tem[0]                           
-            ret = tem if non_binary else (tem != 0).astype(np.float32)
+        tem = safe_pickle_load(filename)
+        if args.adversarial_attack and (not test_file):
+            print(f"################here load self.adv_edges##################")
+            self.adv_edges = tem[1] 
+            tem = tem[0]                           
+        ret = tem if non_binary else (tem != 0).astype(np.float32)
         if type(ret) != coo_matrix:
             ret = sp.coo_matrix(ret)
         return ret
