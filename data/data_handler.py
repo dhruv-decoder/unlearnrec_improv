@@ -1,3 +1,4 @@
+import os
 import pickle
 import numpy as np
 from scipy.sparse import csr_matrix, coo_matrix, dok_matrix
@@ -9,23 +10,23 @@ import torch.utils.data as data
 import torch_sparse as ts
 import random
 
+_DATASET_DIRS = {
+    'ml1m': './datasets/ml-1m/',
+    'ml10m': './datasets/ml-10m/',
+    'yelp2018': './datasets/yelp2018/',
+    'yelp': './datasets/sparse_yelp/',
+    'gowalla': './datasets/sparse_gowalla/',
+    'amazon': './datasets/sparse_amazon/',
+}
+
 class DataHandler:
     def __init__(self, adv_type=args.adv_method):
-        if args.data == 'ml1m':
-            predir = './datasets/ml-1m' + '/'
-        elif args.data == 'ml10m':
-            predir = './datasets/ml-10m/'
-        elif args.data == 'yelp2018':
-            predir = './datasets/yelp2018/'
-
-        elif args.data == 'yelp':
-            predir = './datasets/sparse_yelp/'      
-        elif args.data == 'gowalla':
-            predir = './datasets/sparse_gowalla/'                      
-        elif args.data == 'amazon':
-            predir = './datasets/sparse_amazon/'    
-
-        # self.trn_file = predir + 'trn_mat.pkl'
+        predir = _DATASET_DIRS.get(args.data)
+        if predir is None:
+            raise ValueError(
+                f"Unknown dataset '{args.data}'. "
+                f"Supported: {sorted(_DATASET_DIRS)}"
+            )
         if args.adversarial_attack:            
             print("##########using the least adv_mat#############")                
             self.trn_file = predir + f'adv_{adv_type}_mat.pkl'
@@ -41,15 +42,29 @@ class DataHandler:
         np.random.seed(args.seed)
         random.seed(args.seed)
 
-    def _load_one_file(self, filename, test_file=False,non_binary=False):
-        print(f"################here _load_one_file##################")
-        with open(filename, 'rb') as fs:
-            tem = pickle.load(fs)
-            if args.adversarial_attack and (not test_file):
-                print(f"################here load self.adv_edges##################")
-                self.adv_edges = tem[1] 
-                tem = tem[0]                           
-            ret = tem if non_binary else (tem != 0).astype(np.float32)
+    def _load_one_file(self, filename, test_file=False, non_binary=False):
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(
+                f"Dataset file not found: {filename}. "
+                f"Check that --data='{args.data}' is correct and "
+                f"the dataset has been downloaded."
+            )
+        try:
+            with open(filename, 'rb') as fs:
+                tem = pickle.load(fs)
+        except (pickle.UnpicklingError, EOFError, ValueError) as exc:
+            raise RuntimeError(
+                f"Failed to load dataset file '{filename}': {exc}"
+            ) from exc
+        if args.adversarial_attack and (not test_file):
+            if not isinstance(tem, (list, tuple)) or len(tem) < 2:
+                raise ValueError(
+                    f"Expected (matrix, adv_edges) tuple in '{filename}' "
+                    f"when --adversarial_attack is set, got {type(tem).__name__}"
+                )
+            self.adv_edges = tem[1]
+            tem = tem[0]
+        ret = tem if non_binary else (tem != 0).astype(np.float32)
         if type(ret) != coo_matrix:
             ret = sp.coo_matrix(ret)
         return ret

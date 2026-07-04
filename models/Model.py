@@ -1,3 +1,4 @@
+import os
 from statistics import mean
 import torch as t
 from torch import nn
@@ -108,12 +109,11 @@ class HGNNLayer(nn.Module):
         elif act == 'relu6':
             self.act = nn.ReLU6()
         else:
-            raise Exception('Error')
+            raise ValueError(f"Unsupported activation '{act}', expected one of: identity, leaky, relu, relu6")
 
     def forward(self, embeds):
-        # if self.act is None:
-        #     # return self.linear(embeds)
-        #     return  embeds @ self.W 
+        if self.act is None:
+            return embeds @ self.W1
         out1 = self.act(  embeds @ self.W1 + self.bias1 )
         out2 = self.act(  out1 @ self.W2 + self.bias2  )
         return out2
@@ -214,7 +214,7 @@ class GraphUnlearning(nn.Module):
         all_embs, out_emb = self.model.forward(ts_pk_adj, tuned_emb, all_layer=True)  
 
         if layer == -2:
-            tuned_emb[:args.user], tuned_emb[args.user:]
+            return tuned_emb[:args.user], tuned_emb[args.user:]
         elif layer == -1:
             return out_emb[:args.user], out_emb[args.user:]
         else:
@@ -237,6 +237,8 @@ class GraphUnlearning(nn.Module):
             unlearn_loss = cal_neg_aug_v1(usr_embeds[drp_edges[0]],  itm_embeds[drp_edges[1]])
         elif args.unlearn_type =='v2':
             unlearn_loss = cal_neg_aug_v2(usr_embeds[drp_edges[0]],  itm_embeds[drp_edges[1]])
+        else:
+            raise ValueError(f"Unknown unlearn_type '{args.unlearn_type}', expected 'v1' or 'v2'")
 
         tar_fnl_uEmbeds, tar_fnl_iEmbeds  = self.fnl_embeds[ :args.user].detach(), self.fnl_embeds[args.user: ].detach()
             
@@ -256,7 +258,9 @@ class GraphUnlearning(nn.Module):
             if args.align_type == 'v2':
                 align_loss = cal_positive_pred_align_v2(usr_embeds[ancs], tar_fnl_uEmbeds[ancs], itm_embeds[poss], tar_fnl_iEmbeds[poss],   cal_l2_distance, temp=args.align_temp)
             elif args.align_type == 'v3':
-                align_loss = cal_positive_pred_align_v3(usr_embeds[ancs], tar_fnl_uEmbeds[ancs], itm_embeds[poss], tar_fnl_iEmbeds[poss],   cal_l2_distance, temp=args.align_temp)        
+                align_loss = cal_positive_pred_align_v3(usr_embeds[ancs], tar_fnl_uEmbeds[ancs], itm_embeds[poss], tar_fnl_iEmbeds[poss],   cal_l2_distance, temp=args.align_temp)
+            else:
+                raise ValueError(f"Unknown align_type '{args.align_type}', expected 'v2' or 'v3'")
 
         sslLoss = 0
         for i in range(args.gnn_layer):
@@ -434,6 +438,8 @@ class GAIE(nn.Module):
             unlearn_loss = cal_neg_aug_v1(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
         elif args.unlearn_type == 'v2':
             unlearn_loss = cal_neg_aug_v2(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
+        else:
+            raise ValueError(f"Unknown unlearn_type '{args.unlearn_type}', expected 'v1' or 'v2'")
 
         # Alignment loss (preserve prediction for non-deleted edges)
         tar_fnl_uEmbeds = self.fnl_embeds[:args.user].detach()
@@ -451,6 +457,8 @@ class GAIE(nn.Module):
                 itm_embeds[poss], tar_fnl_iEmbeds[poss],
                 cal_l2_distance, temp=args.align_temp
             )
+        else:
+            raise ValueError(f"Unknown align_type '{args.align_type}', expected 'v2' or 'v3'")
 
         # Reconstruction loss
         rec_loss = self.cal_reconstruction_loss(mu, logvar, ts_drp_adj, drp_edges)
@@ -609,6 +617,8 @@ class AIE(nn.Module):
             unlearn_loss = cal_neg_aug_v1(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
         elif args.unlearn_type == 'v2':
             unlearn_loss = cal_neg_aug_v2(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
+        else:
+            raise ValueError(f"Unknown unlearn_type '{args.unlearn_type}', expected 'v1' or 'v2'")
 
         # Alignment / preservation loss (L_p)
         tar_fnl_uEmbeds = self.fnl_embeds[:args.user].detach()
@@ -626,6 +636,8 @@ class AIE(nn.Module):
                 itm_embeds[poss], tar_fnl_iEmbeds[poss],
                 cal_l2_distance, temp=args.align_temp
             )
+        else:
+            raise ValueError(f"Unknown align_type '{args.align_type}', expected 'v2' or 'v3'")
 
         # Total: L = L_M + λ_u L_u + λ_p L_p
         loss = (base_loss
@@ -796,6 +808,8 @@ class HIE(nn.Module):
             unlearn_loss = cal_neg_aug_v1(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
         elif args.unlearn_type == 'v2':
             unlearn_loss = cal_neg_aug_v2(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
+        else:
+            raise ValueError(f"Unknown unlearn_type '{args.unlearn_type}', expected 'v1' or 'v2'")
 
         # Alignment / preservation loss (L_p)
         tar_fnl_uEmbeds = self.fnl_embeds[:args.user].detach()
@@ -813,6 +827,8 @@ class HIE(nn.Module):
                 itm_embeds[poss], tar_fnl_iEmbeds[poss],
                 cal_l2_distance, temp=args.align_temp
             )
+        else:
+            raise ValueError(f"Unknown align_type '{args.align_type}', expected 'v2' or 'v3'")
 
         # Total: L = L_M + λ_u L_u + λ_p L_p
         loss = (base_loss
@@ -938,6 +954,8 @@ class CIE(nn.Module):
             unlearn_loss = cal_neg_aug_v1(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
         elif args.unlearn_type == 'v2':
             unlearn_loss = cal_neg_aug_v2(usr_embeds[drp_edges[0]], itm_embeds[drp_edges[1]])
+        else:
+            raise ValueError(f"Unknown unlearn_type '{args.unlearn_type}', expected 'v1' or 'v2'")
 
         # Alignment / preservation loss (L_p)
         tar_fnl_uEmbeds = self.fnl_embeds[:args.user].detach()
@@ -969,6 +987,8 @@ class CIE(nn.Module):
                     itm_embeds[ret_poss], tar_fnl_iEmbeds[ret_poss],
                     cal_l2_distance, temp=args.align_temp
                 )
+            else:
+                raise ValueError(f"Unknown align_type '{args.align_type}', expected 'v2' or 'v3'")
         else:
             align_loss = t.tensor(0., device=ancs.device)
 
@@ -1190,11 +1210,10 @@ class FeedForwardLayer(nn.Module):
         elif act == 'relu6':
             self.act = nn.ReLU6()
         else:
-            raise Exception('Error')
+            raise ValueError(f"Unsupported activation '{act}', expected one of: identity, leaky, relu, relu6")
     
     def forward(self, embeds):
         if self.act is None:
-            # return self.linear(embeds)
             return  embeds @ self.W 
         return (self.act(  embeds @ self.W + self.bias )) + embeds  #  residual skip (v1)
         # return self.act(  embeds @ self.W + self.bias )  #  no-skip (v2)
