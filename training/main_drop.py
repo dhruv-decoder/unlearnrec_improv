@@ -10,6 +10,7 @@ import Utils.time_logger as logger
 from Utils.time_logger import log
 from config.params import args
 from models.Model import *
+from Utils.safe_io import safe_torch_load, safe_torch_save
 # from model import *
 
 from data.data_handler import DataHandler
@@ -312,14 +313,14 @@ class Coach:
         if not save_path.endswith('.mod'):
             save_path = save_path + '.mod'
 
-        t.save(content,  save_path)
+        safe_torch_save(content,  save_path)
         log('Model Saved: %s' % args.save_path)
 
     def load_trained_model(self, trained_model = args.trained_model):
         if not trained_model.endswith('.mod'):
             trained_model = trained_model + '.mod'
 
-        ckp = t.load(trained_model, weights_only=False)
+        ckp = safe_torch_load(trained_model)
 
         model = ckp['model']
         return model
@@ -331,7 +332,7 @@ class Coach:
         if not model_2_finetune.endswith('.mod'):
             model_2_finetune = model_2_finetune + '.mod'
 
-        ckp = t.load(model_2_finetune, weights_only=False)
+        ckp = safe_torch_load(model_2_finetune)
         self.model = ckp['model']
         self.opt = t.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=0)
 

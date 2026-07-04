@@ -14,6 +14,7 @@ from data.data_handler import DataHandler
 import numpy as np
 import pickle
 import setproctitle
+from Utils.safe_io import safe_pickle_load, safe_torch_load, safe_torch_save, validate_path
 from scipy.sparse import coo_matrix
 import random
 import torch_sparse as ts
@@ -76,6 +77,7 @@ def find_least_related_edges(model, handler, save_path):
     vals = np.ones_like(rows)
     log('New number of edges %d' % len(rows))
     adv_adj = coo_matrix((vals, (rows, cols)), shape=[args.user, args.item])
+    save_path = validate_path(save_path)
     with open(save_path, 'wb') as fs:
         pickle.dump((adv_adj, least_related_edges), fs)
 
@@ -119,11 +121,12 @@ def find_least_related_edges_smp(model, handler, save_path, ratio=0.6):
     vals = np.ones_like(rows)
     log('New number of edges %d' % len(rows))
     adv_adj = coo_matrix((vals, (rows, cols)), shape=[args.user, args.item])
+    save_path = validate_path(save_path)
     with open(save_path, 'wb') as fs:
         pickle.dump((adv_adj, least_related_edges), fs)        
 
 def load_model(load_model):
-    ckp = t.load(load_model, weights_only=False)
+    ckp = safe_torch_load(load_model)
     model = ckp['model']
     return model
 

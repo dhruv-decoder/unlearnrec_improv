@@ -1,23 +1,30 @@
+import os
+import sys
 import pickle
 import torch as t
 import torch_sparse as ts 
 import scipy.sparse as sp
 from scipy.sparse import csr_matrix, coo_matrix, dok_matrix
-import numper as np
+import numpy as np
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from Utils.safe_io import safe_pickle_load
 
 adversarial_attack=True
 
-file1 = '/home/guoxchen/unlearn/datasets/yelp2018/trn_mat.pkl'
-file2 = '/home/guoxchen/unlearn/datasets/yelp2018/adv_mat.pkl'
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+file1 = os.path.join(_SCRIPT_DIR, 'trn_mat.pkl')
+file2 = os.path.join(_SCRIPT_DIR, 'adv_mat.pkl')
 
 
 def load_one_file( filename, test_file=False,non_binary=False):
-    with open(filename, 'rb') as fs:
-        tem = pickle.load(fs)
-        if adversarial_attack and (not test_file):
-            adv_edges = tem[1] 
-            tem = tem[0]                           
-        ret = tem if non_binary else (tem != 0).astype(np.float32)
+    tem = safe_pickle_load(filename)
+    if adversarial_attack and (not test_file):
+        adv_edges = tem[1] 
+        tem = tem[0]                           
+    ret = tem if non_binary else (tem != 0).astype(np.float32)
     if type(ret) != coo_matrix:
         ret = sp.coo_matrix(ret)
     ret = ts.SparseTensor.from_scipy(ret)

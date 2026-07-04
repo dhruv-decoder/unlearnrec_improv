@@ -10,6 +10,7 @@ import Utils.time_logger as logger
 from Utils.time_logger import log
 from config.params import args
 from models.Model import *
+from Utils.safe_io import safe_torch_load, safe_torch_save
 # from model import *
 
 from data.data_handler import DataHandler
@@ -381,12 +382,12 @@ class Coach:
         content = {
             'model': self.model,
         }
-        t.save(content,  args.save_path + '.mod')
+        safe_torch_save(content,  args.save_path + '.mod')
         log('Model Saved: %s' % args.save_path)
 
     def load_trained_model(self, trained_model = args.trained_model):
         # ckp = t.load(trained_model + '.mod')
-        ckp = t.load(trained_model, weights_only=False)
+        ckp = safe_torch_load(trained_model)
         print("####################tyep of trained model#####################")
         print(type(ckp))
         model = ckp['model']
@@ -395,13 +396,10 @@ class Coach:
 
     def load_model(self, load_model=None):
         load_model = args.load_model if load_model is None else load_model
-        ckp = t.load(load_model + '.mod', weights_only=False)
+        ckp = safe_torch_load(load_model + '.mod')
         self.model = ckp['model']
         # self.opt = t.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=0)
         return self.model
-
-        # with open('../../History/' + load_model + '.his', 'rb') as fs:
-        #     self.metrics = pickle.load(fs)
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
